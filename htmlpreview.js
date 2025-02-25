@@ -116,9 +116,7 @@
 		var anchorElement = document.createElement('a')
 		anchorElement.innerText = (tocElement.attributes.text || tocElement.attributes.id || {}).value;
 		if (tocElement.attributes.target) {
-			var href = getTOCLink(tocElement.attributes.target.value);
-			anchorElement.href = href;
-			console.log(anchorElement.href)
+			anchorElement.href = `?${tocElement.attributes.target.value}`;
 		}
 		listItem.appendChild(anchorElement)
 
@@ -132,13 +130,6 @@
 		}
 
 		return listItem
-	}
-
-	var getTOCLink = function (tocTarget) {
-		var link = new URL(`${location.protocol}//${location.hostname}:${location.port}${location.pathname}?${tocTarget}`)
-		// link.search = tocTarget
-		// console.log(link)
-		return link
 	}
 
 	var fetchProxy = function (url, options, i) {
