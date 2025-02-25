@@ -1,8 +1,15 @@
 (function () {
-	
+
 	var previewForm = document.getElementById('previewform');
 
-	var url = location.search.substring(1).replace(/\/\/github\.com/, '//raw.githubusercontent.com').replace(/\/blob\//, '/'); //Get URL of the raw file
+	var toc = 'https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Features/Base/src/main/help/help/TOC_Source.xml';
+	var prefix = 'https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Features/Base/src/main/help/';
+	var url = location.search.substring(1);
+	if (!url) {
+		url = toc;
+	} else {
+		url = `${prefix}${url}`;
+	}
 
 	var replaceAssets = function () {
 		var frame, a, link, links = [], script, scripts = [], i, href, src;
@@ -86,7 +93,54 @@
 			document.body.appendChild(script);
 		}
 	};
-	
+
+	var loadTOC = function (data) {
+		if (data) {
+			var parser = new DOMParser()
+			var dom = parser.parseFromString(data, 'text/xml')
+			var tocroot = dom.querySelector('tocroot')
+			var subroot = Array.prototype.slice.apply(tocroot.children)[0];
+			html = document.createElement('ul');
+			html.appendChild(getTOCElement(subroot));
+			console.log(html.outerHTML)
+			setTimeout(function () {
+				document.open();
+				document.write(html.outerHTML);
+				document.close();
+			}, 10); //Delay updating document to have it cleared before
+		}
+	}
+
+	var getTOCElement = function (tocElement) {
+		var listItem = document.createElement('li')
+		var anchorElement = document.createElement('a')
+		anchorElement.innerText = (tocElement.attributes.text || tocElement.attributes.id || {}).value;
+		if (tocElement.attributes.target) {
+			var href = getTOCLink(tocElement.attributes.target.value);
+			anchorElement.href = href;
+			console.log(anchorElement.href)
+		}
+		listItem.appendChild(anchorElement)
+
+		var children = Array.prototype.slice.apply(tocElement.children);
+		if (children.length) {
+			var unorderedList = document.createElement('ul')
+			children.forEach(function (child) {
+				unorderedList.appendChild(getTOCElement(child));
+			})
+			listItem.appendChild(unorderedList)
+		}
+
+		return listItem
+	}
+
+	var getTOCLink = function (tocTarget) {
+		var link = new URL(`${location.protocol}//${location.hostname}:${location.port}${location.pathname}?${tocTarget}`)
+		// link.search = tocTarget
+		// console.log(link)
+		return link
+	}
+
 	var fetchProxy = function (url, options, i) {
 		var proxy = [
 			'', // try without proxy first
@@ -103,7 +157,12 @@
 	};
 
 	if (url && url.indexOf(location.hostname) < 0)
-		fetchProxy(url, null, 0).then(loadHTML).catch(function (error) {
+		fetchProxy(url, null, 0).then(function (data) {
+			if (url.endsWith('TOC_Source.xml')) {
+				return loadTOC(data)
+			}
+			return loadHTML(data)
+		}).catch(function (error) {
 			console.error(error);
 			previewForm.style.display = 'block';
 			previewForm.innerText = error;
