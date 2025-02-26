@@ -100,9 +100,15 @@
 			var dom = parser.parseFromString(data, 'text/xml')
 			var tocroot = dom.querySelector('tocroot')
 			var subroot = Array.prototype.slice.apply(tocroot.children)[0];
-			html = document.createElement('ul');
-			html.appendChild(getTOCElement(subroot));
-			console.log(html.outerHTML)
+			html = document.createElement('div');
+			html.innerHTML = [
+				'<h1>Ghidra documentation</h1>',
+				'<p>Shows Ghidra documentation in your web browser, which you\'d normally need to download and install Ghidra to view.</p>',
+				'<p>More information at <a href="https://github.com/rcambrj/ghidra-docs">https://github.com/rcambrj/ghidra-docs</a></p>',
+			].join('\n');
+			ulElement = document.createElement('ul');
+			html.appendChild(ulElement);
+			ulElement.appendChild(getTOCElement(subroot));
 			setTimeout(function () {
 				document.open();
 				document.write(html.outerHTML);
