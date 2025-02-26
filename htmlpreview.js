@@ -1,9 +1,42 @@
 (function () {
 
-	var previewForm = document.getElementById('previewform');
+	var errorDiv = document.getElementById('error');
 
 	var toc = 'https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Features/Base/src/main/help/help/TOC_Source.xml';
 	var prefix = 'https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Features/Base/src/main/help/';
+	var sharedImages = [
+		'images/B.gif',
+		'images/D.gif',
+		'images/F.gif',
+		'images/GHIDRA_1.png',
+		'images/I.gif',
+		'images/L.gif',
+		'images/U.gif',
+		'images/V_slash.png',
+		'images/binaryData.gif',
+		'images/dataTypes.png',
+		'images/decompileFunction.gif',
+		'images/disk.png',
+		'images/document-properties.png',
+		'images/down.png',
+		'images/function_graph.png',
+		'images/left.png',
+		'images/memory16.gif',
+		'images/notF.gif',
+		'images/notes.gif',
+		'images/play.png',
+		'images/play_again.png',
+		'images/redo.png',
+		'images/registerGroup.png',
+		'images/right.png',
+		'images/sitemap_color.png',
+		'images/table.png',
+		'images/table_go.png',
+		'images/undo.png',
+		'images/up.png',
+		'images/viewmagfit.png',
+	];
+
 	var url = location.search.substring(1);
 	if (!url) {
 		url = toc;
@@ -11,44 +44,51 @@
 		url = `${prefix}${url}`;
 	}
 
-	var replaceAssets = function () {
-		var frame, a, link, links = [], script, scripts = [], i, href, src;
-		//Framesets
-		if (document.querySelectorAll('frameset').length)
-			return; //Don't replace CSS/JS if it's a frameset, because it will be erased by document.write()
-		//Frames
-		frame = document.querySelectorAll('iframe[src],frame[src]');
-		for (i = 0; i < frame.length; ++i) {
-			src = frame[i].src; //Get absolute URL
-			if (src.indexOf('//raw.githubusercontent.com') > 0 || src.indexOf('//bitbucket.org') > 0) { //Check if it's from raw.github.com or bitbucket.org
-				frame[i].src = '//' + location.hostname + location.pathname + '?' + src; //Then rewrite URL so it can be loaded using CORS proxy
+	var links = [], scripts = [];
+
+	var replaceAssets = function (data) {
+		var parser = new DOMParser()
+		var dom = parser.parseFromString(data, 'text/html')
+
+		var asset, a, link, script, i, href, src;
+		// Shared directory images
+		asset = dom.querySelectorAll('img');
+		for (i = 0; i < asset.length; ++i) {
+			src = asset[i].attributes.src.value;
+			// first shared directory
+			if (src.indexOf('help/shared') >= 0) {
+				asset[i].attributes.src.value = `https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Framework/Help/src/main/resources/${src}`;
+			}
+			// second shared directory - pattern conflicts with non-shared :(
+			if (sharedImages.indexOf(src) >= 0) {
+				asset[i].attributes.src.value = `https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/GhidraDocs/${src}`;
 			}
 		}
 		//Links
-		a = document.querySelectorAll('a[href]');
+		a = dom.querySelectorAll('a[href]');
 		for (i = 0; i < a.length; ++i) {
-			href = a[i].href; //Get absolute URL
-			if (href.indexOf('#') > 0) { //Check if it's an anchor
-				a[i].href = '//' + location.hostname + location.pathname + location.search + '#' + a[i].hash.substring(1); //Then rewrite URL with support for empty anchor
-			} else if ((href.indexOf('//raw.githubusercontent.com') > 0 || href.indexOf('//bitbucket.org') > 0) && (href.indexOf('.html') > 0 || href.indexOf('.htm') > 0)) { //Check if it's from raw.github.com or bitbucket.org and to HTML files
-				a[i].href = '//' + location.hostname + location.pathname + '?' + href; //Then rewrite URL so it can be loaded using CORS proxy
+			href = a[i].href;
+			if (href.indexOf(prefix) === 0) {
+				href = href.substr(prefix.length)
 			}
+			//Then rewrite URL so it can be loaded using CORS proxy
+			a[i].href = location.protocol + '//' + location.hostname + ':' + location.port + location.pathname + '?' + href;
 		}
 		//Stylesheets
-		link = document.querySelectorAll('link[rel=stylesheet]');
+		link = dom.querySelectorAll('link[rel=stylesheet]');
 		for (i = 0; i < link.length; ++i) {
 			href = link[i].href; //Get absolute URL
+			if (href.indexOf('help/shared') >= 0) {
+				href = `https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/Ghidra/Framework/Help/src/main/resources/${link[i].attributes.href.value}`;
+			}
 			if (href.indexOf('//raw.githubusercontent.com') > 0 || href.indexOf('//bitbucket.org') > 0) { //Check if it's from raw.github.com or bitbucket.org
 				links.push(fetchProxy(href, null, 0)); //Then add it to links queue and fetch using CORS proxy
 			}
+			// remove node from dom, load this manually later
+			link[i].parentNode.removeChild(link[i])
 		}
-		Promise.all(links).then(function (res) {
-			for (i = 0; i < res.length; ++i) {
-				loadCSS(res[i]);
-			}
-		});
 		//Scripts
-		script = document.querySelectorAll('script[type="text/htmlpreview"]');
+		script = dom.querySelectorAll('script[type="text/htmlpreview"]');
 		for (i = 0; i < script.length; ++i) {
 			src = script[i].src; //Get absolute URL
 			if (src.indexOf('//raw.githubusercontent.com') > 0 || src.indexOf('//bitbucket.org') > 0) { //Check if it's from raw.github.com or bitbucket.org
@@ -57,23 +97,36 @@
 				script[i].removeAttribute('type');
 				scripts.push(script[i].innerHTML); //Add inline script to queue to eval in order
 			}
+			// remove node from dom, load this manually later
+			script[i].parentNode.removeChild(script[i])
 		}
+		return dom.documentElement.outerHTML
+	};
+
+	var loadAssets = function () {
+		Promise.all(links).then(function (res) {
+			for (var i = 0; i < res.length; ++i) {
+				loadCSS(res[i]);
+			}
+		});
 		Promise.all(scripts).then(function (res) {
-			for (i = 0; i < res.length; ++i) {
+			for (var i = 0; i < res.length; ++i) {
 				loadJS(res[i]);
 			}
 			document.dispatchEvent(new Event('DOMContentLoaded', {bubbles: true, cancelable: true})); //Dispatch DOMContentLoaded event after loading all scripts
 		});
-	};
+	}
 
 	var loadHTML = function (data) {
 		if (data) {
 			data = data.replace(/<head([^>]*)>/i, '<head$1><base href="' + url + '">').replace(/<script(\s*src=["'][^"']*["'])?(\s*type=["'](text|application)\/javascript["'])?/gi, '<script type="text/htmlpreview"$1'); //Add <base> just after <head> and replace <script type="text/javascript"> with <script type="text/htmlpreview">
+			data = replaceAssets(data);
+
 			setTimeout(function () {
 				document.open();
 				document.write(data);
 				document.close();
-				replaceAssets();
+				loadAssets()
 			}, 10); //Delay updating document to have it cleared before
 		}
 	};
@@ -100,19 +153,22 @@
 			var dom = parser.parseFromString(data, 'text/xml')
 			var tocroot = dom.querySelector('tocroot')
 			var subroot = Array.prototype.slice.apply(tocroot.children)[0];
-			html = document.createElement('div');
-			html.innerHTML = [
+			html = [
+				'<link rel="stylesheet" type="text/css" href="help/shared/DefaultStyle.css">',
 				'<h1>Ghidra documentation</h1>',
 				'<p>Shows Ghidra documentation in your web browser, which you\'d normally need to download and install Ghidra to view.</p>',
 				'<p>More information at <a href="https://github.com/rcambrj/ghidra-docs">https://github.com/rcambrj/ghidra-docs</a></p>',
 			].join('\n');
+			html = replaceAssets(html);
+			var dom = parser.parseFromString(html, 'text/html')
 			ulElement = document.createElement('ul');
-			html.appendChild(ulElement);
+			dom.body.appendChild(ulElement);
 			ulElement.appendChild(getTOCElement(subroot));
 			setTimeout(function () {
 				document.open();
-				document.write(html.outerHTML);
+				document.write(dom.documentElement.innerHTML);
 				document.close();
+				loadAssets()
 			}, 10); //Delay updating document to have it cleared before
 		}
 	}
@@ -153,7 +209,7 @@
 		})
 	};
 
-	if (url && url.indexOf(location.hostname) < 0)
+	if (url && url.indexOf(location.hostname) < 0) {
 		fetchProxy(url, null, 0).then(function (data) {
 			if (url.endsWith('TOC_Source.xml')) {
 				return loadTOC(data)
@@ -161,10 +217,8 @@
 			return loadHTML(data)
 		}).catch(function (error) {
 			console.error(error);
-			previewForm.style.display = 'block';
-			previewForm.innerText = error;
+			errorDiv.style.display = 'block';
+			errorDiv.innerText = error;
 		});
-	else
-		previewForm.style.display = 'block';
-
+	}
 })()
