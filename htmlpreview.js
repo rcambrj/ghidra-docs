@@ -63,6 +63,12 @@
 			if (sharedImages.indexOf(src) >= 0) {
 				asset[i].attributes.src.value = `https://raw.githubusercontent.com/NationalSecurityAgency/ghidra/master/GhidraDocs/${src}`;
 			}
+			if (src === "help/shared/arrow.gif") {
+				var span = dom.createElement('span')
+				span.innerText = "→"
+				asset[i].parentNode.insertBefore(span, asset[i])
+				asset[i].parentNode.removeChild(asset[i])
+			}
 		}
 		//Links
 		a = dom.querySelectorAll('a[href]');
