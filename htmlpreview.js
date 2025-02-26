@@ -67,12 +67,18 @@
 		//Links
 		a = dom.querySelectorAll('a[href]');
 		for (i = 0; i < a.length; ++i) {
-			href = a[i].href;
-			if (href.indexOf(prefix) === 0) {
-				href = href.substr(prefix.length)
+			originalHref = a[i].attributes.href.value;
+			absoluteHref = a[i].href;
+			if (originalHref.match(/^(https?:|\/\/)/)) {
+				// absolute uri
+				// do nothing
+			} else if (originalHref.indexOf('help/') === 0) {
+				// this is an absolute path within the help docs
+				a[i].href = location.protocol + '//' + location.hostname + ':' + location.port + location.pathname + '?' + originalHref;
+			} else {
+				withoutPrefixHref = absoluteHref.substr(prefix.length)
+				a[i].href = location.protocol + '//' + location.hostname + ':' + location.port + location.pathname + '?' + withoutPrefixHref;
 			}
-			//Then rewrite URL so it can be loaded using CORS proxy
-			a[i].href = location.protocol + '//' + location.hostname + ':' + location.port + location.pathname + '?' + href;
 		}
 		//Stylesheets
 		link = dom.querySelectorAll('link[rel=stylesheet]');
